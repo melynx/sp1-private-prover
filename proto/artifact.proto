@@ -1,0 +1,27 @@
+syntax = "proto3";
+package artifact;
+
+service ArtifactStore {
+  rpc CreateArtifact(CreateArtifactRequest) returns (CreateArtifactResponse);
+}
+
+message CreateArtifactRequest {
+  bytes signature = 1;
+  ArtifactType artifact_type = 2;
+}
+
+message CreateArtifactResponse {
+  string artifact_uri = 1;
+  string artifact_presigned_url = 2;
+}
+
+enum ArtifactType {
+  UNSPECIFIED_ARTIFACT_TYPE = 0;
+  PROGRAM = 1;
+  STDIN = 2;
+  PROOF = 3;
+  TRANSACTION = 4;
+  STATE = 5;
+  EXPORT = 6;
+  PRIVATE_STDIN = 7;
+}

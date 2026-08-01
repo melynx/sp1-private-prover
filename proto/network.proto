@@ -1,0 +1,64 @@
+syntax = "proto3";
+package network;
+
+service ProverNetwork {
+  rpc RequestProof(RequestProofRequest) returns (RequestProofResponse);
+  rpc CancelRequest(CancelRequestRequest) returns (CancelRequestResponse);
+  rpc GetProofRequestStatus(GetProofRequestStatusRequest) returns (GetProofRequestStatusResponse);
+  rpc GetProofRequestParams(GetProofRequestParamsRequest) returns (GetProofRequestParamsResponse);
+  rpc GetNonce(GetNonceRequest) returns (GetNonceResponse);
+  rpc GetProgram(GetProgramRequest) returns (GetProgramResponse);
+  rpc CreateProgram(CreateProgramRequest) returns (CreateProgramResponse);
+  rpc GetProversByUptime(GetProversByUptimeRequest) returns (GetProversByUptimeResponse);
+}
+
+enum MessageFormat { UNSPECIFIED_MESSAGE_FORMAT = 0; BINARY = 1; JSON = 2; }
+enum ProofMode { UNSPECIFIED_PROOF_MODE = 0; CORE = 1; COMPRESSED = 2; PLONK = 3; GROTH16 = 4; }
+enum FulfillmentStrategy { UNSPECIFIED_FULFILLMENT_STRATEGY = 0; HOSTED = 1; RESERVED = 2; AUCTION = 3; }
+enum FulfillmentStatus { UNSPECIFIED_FULFILLMENT_STATUS = 0; REQUESTED = 1; ASSIGNED = 2; FULFILLED = 3; UNFULFILLABLE = 4; REVERTED = 5; EXPIRED = 6; }
+enum ExecutionStatus { UNSPECIFIED_EXECUTION_STATUS = 0; UNEXECUTED = 1; EXECUTED = 2; UNEXECUTABLE = 3; VALIDATION_FAILED = 4; }
+
+message RequestProofRequest { MessageFormat format = 1; bytes signature = 2; RequestProofRequestBody body = 3; }
+message RequestProofRequestBody {
+  uint64 nonce = 1; bytes vk_hash = 2; string version = 3; ProofMode mode = 4;
+  FulfillmentStrategy strategy = 5; string stdin_uri = 6; uint64 deadline = 7;
+  uint64 cycle_limit = 8; uint64 gas_limit = 9; uint64 min_auction_period = 10;
+  repeated bytes whitelist = 11; bytes domain = 12; bytes auctioneer = 13;
+  bytes executor = 14; bytes verifier = 15; optional bytes public_values_hash = 16;
+  string base_fee = 17; string max_price_per_pgu = 18; int32 variant = 19;
+  bytes treasury = 20; bool stdin_private = 21;
+}
+message RequestProofResponse { bytes tx_hash = 1; RequestProofResponseBody body = 2; }
+message RequestProofResponseBody { bytes request_id = 1; }
+
+message CancelRequestRequest { MessageFormat format = 1; bytes signature = 2; CancelRequestRequestBody body = 3; }
+message CancelRequestRequestBody { uint64 nonce = 1; bytes request_id = 2; }
+message CancelRequestResponse { bytes tx_hash = 1; CancelRequestResponseBody body = 2; }
+message CancelRequestResponseBody {}
+
+message GetProofRequestStatusRequest { bytes request_id = 1; }
+message GetProofRequestStatusResponse {
+  FulfillmentStatus fulfillment_status = 1; ExecutionStatus execution_status = 2;
+  bytes request_tx_hash = 3; uint64 deadline = 4; optional bytes fulfill_tx_hash = 5;
+  optional string proof_uri = 6; optional bytes public_values_hash = 7;
+  optional string proof_public_uri = 8;
+}
+
+message GetProofRequestParamsRequest { ProofMode mode = 1; }
+message GetProofRequestParamsResponse {
+  bytes domain = 1; bytes auctioneer = 2; bytes executor = 3; bytes verifier = 4;
+  string max_price_per_pgu = 5; string base_fee = 6; bytes treasury = 7; uint64 tick_size = 8;
+}
+message GetNonceRequest { bytes address = 1; }
+message GetNonceResponse { uint64 nonce = 1; }
+
+message Program { bytes vk_hash = 1; bytes vk = 2; string program_uri = 3; optional string name = 4; bytes owner = 5; uint64 created_at = 6; }
+message GetProgramRequest { bytes vk_hash = 1; }
+message GetProgramResponse { Program program = 1; }
+message CreateProgramRequest { MessageFormat format = 1; bytes signature = 2; CreateProgramRequestBody body = 3; }
+message CreateProgramRequestBody { uint64 nonce = 1; bytes vk_hash = 2; bytes vk = 3; string program_uri = 4; }
+message CreateProgramResponse { bytes tx_hash = 1; CreateProgramResponseBody body = 2; }
+message CreateProgramResponseBody {}
+
+message GetProversByUptimeRequest { bool high_availability_only = 1; }
+message GetProversByUptimeResponse { repeated bytes provers = 1; }

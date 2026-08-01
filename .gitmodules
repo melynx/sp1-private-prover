@@ -1,0 +1,3 @@
+[submodule "vendor/sp1"]
+	path = vendor/sp1
+	url = https://github.com/melynx/sp1.git

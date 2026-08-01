@@ -1,0 +1,28 @@
+grpc_listen = "0.0.0.0:50051"
+http_listen = "0.0.0.0:50052"
+public_http_base = "http://<private-prover-host>:50052"
+state_dir = "/var/lib/sp1-private-prover"
+access_mode = "allowlist"
+signer_addresses = ["0x0000000000000000000000000000000000000000"]
+rocm_server = "/usr/local/bin/sp1-rocm-server"
+rocm_server_sha256 = "942ce14d2d7474ca58c081b0b46b404df1cff76398bb1c5077e6764af7acde72"
+circuit_cache = "/var/cache/sp1/circuits"
+circuit_hashes = "/var/cache/sp1/circuits/SHA256SUMS.extracted"
+gtt_path = "/sys/bus/pci/devices/0000:c5:00.0/mem_info_gtt_used"
+
+[limits]
+active_global = 1
+active_per_signer = 1
+queued_per_signer = 4
+queued_global = 32
+max_elf_bytes = 67108864
+max_artifact_compressed_bytes = 268435456
+max_artifact_expanded_bytes = 536870912
+max_cycles = 1000000000000
+max_gas = 1000000000
+max_deadline = "4h"
+retained_bytes = 274877906944
+upload_expiry = "15m"
+terminal_retention = "24h"
+proof_url_expiry = "15m"
+gtt_guard_bytes = 42949672960

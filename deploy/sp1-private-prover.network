@@ -1,0 +1,9 @@
+[Unit]
+Description=Internal network for the private SP1 prover
+
+[Network]
+NetworkName=sp1-private-prover
+Internal=true
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,58 @@
+[package]
+name = "sp1-private-prover"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+rust-version = "1.85"
+
+[features]
+default = []
+rocm = ["sp1-sdk/rocm", "sp1-sdk/native-gnark", "dep:sp1-rocm"]
+
+[dependencies]
+anyhow = "1"
+async-trait = "0.1"
+axum = { version = "0.7", features = ["http2"] }
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+bincode = "1.3"
+clap = { version = "4.5", features = ["derive", "env"] }
+hex = "0.4"
+humantime = "2"
+http = "1"
+http-body-util = "0.1"
+k256 = { version = "0.13", features = ["ecdsa"] }
+libc = "0.2"
+prost = "0.13"
+prometheus = "0.13"
+rand = "0.8"
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+sha3 = "0.10"
+sp1-sdk = { path = "vendor/sp1/crates/sdk", default-features = false }
+sp1-rocm = { path = "vendor/sp1/crates/rocm", optional = true }
+subtle = "2.6"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "sync", "time", "process", "fs"] }
+tokio-util = "0.7"
+toml = "0.8"
+tonic = { version = "0.12.3", features = ["transport", "tls"] }
+tower = "0.5"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+url = "2"
+uuid = { version = "1", features = ["v4"] }
+zstd = "0.13"
+
+[build-dependencies]
+tonic-build = "0.12.3"
+
+[dev-dependencies]
+sp1-sdk = { path = "vendor/sp1/crates/sdk", default-features = false, features = ["network"] }
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
