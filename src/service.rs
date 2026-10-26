@@ -116,6 +116,10 @@ impl PrivateProverService {
 
     pub async fn worker_loop(self) {
         loop {
+            if let Err(error) = self.engine.check_health().await {
+                error!(%error, "proof engine failed; restarting before claiming another job");
+                std::process::exit(70);
+            }
             match self.storage.next_job() {
                 Ok(Some(job)) => {
                     self.metrics.queued.dec();
@@ -123,6 +127,10 @@ impl PrivateProverService {
                     let result = self.process_job(&job).await;
                     self.metrics.active.set(0);
                     if let Err(error) = result {
+                        if let Err(health_error) = self.engine.check_health().await {
+                            error!(%error, %health_error, "proof engine failed during a job; restarting so the running job is retried");
+                            std::process::exit(70);
+                        }
                         self.metrics.failures.inc();
                         error!(request_id = %hex::encode(&job.request_id), %error, "proof job failed");
                         if let Err(store_error) =

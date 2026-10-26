@@ -10,8 +10,9 @@ use sp1_sdk::{Elf, HashableKey, Prover, ProverClient, ProvingKey, SP1Stdin};
 #[cfg(feature = "rocm")]
 use sp1_sdk::{ProofFromNetwork, ProveRequest};
 #[cfg(feature = "rocm")]
+use tokio::net::UnixStream;
+#[cfg(any(feature = "rocm", test))]
 use tokio::{
-    net::UnixStream,
     process::{Child, Command},
     sync::Mutex,
 };
@@ -34,6 +35,9 @@ pub trait ProofEngine: Send + Sync {
         stdin: SP1Stdin,
         mode: ProofMode,
     ) -> Result<Vec<u8>>;
+    async fn check_health(&self) -> Result<()> {
+        Ok(())
+    }
     async fn shutdown(&self) -> Result<()> {
         Ok(())
     }
@@ -43,6 +47,9 @@ pub struct UnavailableEngine(pub String);
 
 #[async_trait]
 impl ProofEngine for UnavailableEngine {
+    async fn check_health(&self) -> Result<()> {
+        bail!("proof engine unavailable: {}", self.0)
+    }
     async fn derive_program(&self, _elf: &[u8]) -> Result<DerivedProgram> {
         bail!("proof engine unavailable: {}", self.0)
     }
@@ -168,8 +175,24 @@ async fn start_rocm_server(config: &Config) -> Result<Child> {
     anyhow::bail!("ROCm server did not create /tmp/sp1-rocm-0.sock within 30 seconds")
 }
 
+#[cfg(any(feature = "rocm", test))]
+async fn check_worker_process(worker: &Mutex<Option<Child>>) -> Result<()> {
+    let mut worker = worker.lock().await;
+    let child = worker.as_mut().context("ROCm server process is missing")?;
+    if let Some(status) = child.try_wait().context("inspect ROCm server process")? {
+        bail!("ROCm server process exited with {status}");
+    }
+    Ok(())
+}
+
 #[async_trait]
 impl ProofEngine for SetupEngine {
+    async fn check_health(&self) -> Result<()> {
+        #[cfg(feature = "rocm")]
+        check_worker_process(&self.rocm_child).await?;
+        Ok(())
+    }
+
     async fn derive_program(&self, elf: &[u8]) -> Result<DerivedProgram> {
         let pk = self
             .cpu
@@ -280,5 +303,34 @@ mod tests {
         let manifest = dir.path().join("hashes");
         fs::write(&manifest, format!("{}  ../secret\n", "0".repeat(64))).unwrap();
         assert!(verify_hash_manifest(dir.path(), &manifest).is_err());
+    }
+
+    #[tokio::test]
+    async fn worker_health_detects_exit_and_missing_child() {
+        let mut exited = Command::new("/bin/sh")
+            .args(["-c", "exit 42"])
+            .spawn()
+            .unwrap();
+        exited.wait().await.unwrap();
+        let worker = Mutex::new(Some(exited));
+        assert!(check_worker_process(&worker)
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("exited"));
+        assert!(check_worker_process(&Mutex::new(None)).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn worker_health_accepts_running_child() {
+        let child = Command::new("/bin/sh")
+            .args(["-c", "sleep 30"])
+            .spawn()
+            .unwrap();
+        let worker = Mutex::new(Some(child));
+        check_worker_process(&worker).await.unwrap();
+        let mut child = worker.lock().await.take().unwrap();
+        child.start_kill().unwrap();
+        child.wait().await.unwrap();
     }
 }

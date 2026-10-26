@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use axum::{
     body::Bytes,
     extract::{DefaultBodyLimit, Path, State},
@@ -8,7 +10,7 @@ use axum::{
 };
 use prometheus::{Encoder, TextEncoder};
 
-use crate::service::PrivateProverService;
+use crate::{engine::ProofEngine, service::PrivateProverService};
 
 pub fn router(service: PrivateProverService) -> Router {
     let maximum = service.config.limits.max_artifact_compressed_bytes as usize;
@@ -78,11 +80,19 @@ async fn live() -> StatusCode {
     StatusCode::NO_CONTENT
 }
 async fn ready(State(service): State<PrivateProverService>) -> StatusCode {
-    if service.ready.load(std::sync::atomic::Ordering::Relaxed) {
-        StatusCode::NO_CONTENT
-    } else {
-        StatusCode::SERVICE_UNAVAILABLE
+    readiness_status(&service.ready, service.engine.as_ref()).await
+}
+
+async fn readiness_status(ready: &AtomicBool, engine: &dyn ProofEngine) -> StatusCode {
+    if !ready.load(Ordering::Relaxed) {
+        return StatusCode::SERVICE_UNAVAILABLE;
     }
+    if let Err(error) = engine.check_health().await {
+        ready.store(false, Ordering::Relaxed);
+        tracing::error!(%error, "proof engine is unavailable");
+        return StatusCode::SERVICE_UNAVAILABLE;
+    }
+    StatusCode::NO_CONTENT
 }
 async fn metrics(State(service): State<PrivateProverService>) -> Response {
     let encoder = TextEncoder::new();
@@ -94,4 +104,21 @@ async fn metrics(State(service): State<PrivateProverService>) -> Response {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
     ([(header::CONTENT_TYPE, encoder.format_type())], output).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine::UnavailableEngine;
+
+    #[tokio::test]
+    async fn readiness_fails_when_engine_is_unavailable() {
+        let ready = AtomicBool::new(true);
+        let engine = UnavailableEngine("worker exited".to_string());
+        assert_eq!(
+            readiness_status(&ready, &engine).await,
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        assert!(!ready.load(Ordering::Relaxed));
+    }
 }

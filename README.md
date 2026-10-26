@@ -76,6 +76,8 @@ The defaults permit one active GPU job, one active and four queued jobs per sign
 
 If the GTT counter exceeds the configured guard, readiness fails and the service exits. Podman then terminates the ROCm child in the container and restarts the complete service. The service uses only caller-uploaded local artifact identifiers and never fetches a caller-supplied external URL.
 
+`/health/ready` also checks that the ROCm worker process is still running. If it has exited, readiness returns HTTP 503. The job loop exits before claiming another job or recording an interrupted proof as a permanent failure. On restart, SQLite requeues that `running` job. This detects a dead worker; it does not repair an AMD GPU page fault or detect a worker that is alive but hung.
+
 ## Validation
 
 Run the local checks:
